@@ -256,9 +256,8 @@
           <div class="field"><label>Djelatnik</label><select id="inp-name"><option value="">— Odaberi —</option></select></div>
           <div class="field"><label>Datum</label><input type="date" id="inp-date" /></div>
         </div>
-        <div class="fg3">
-          <div class="field"><label>Prodajna vrijednost (€)</label><input type="number" id="inp-val" placeholder="0.00" min="0" step="0.01" /></div>
-          <div class="field"><label>Vrsta jamstva</label><select id="inp-wtype"><option value="">— Bez jamstva —</option></select></div>
+        <div class="fg2">
+          <div class="field"><label>Vrsta jamstva</label><select id="inp-wtype"><option value="">— Odaberi jamstvo —</option></select></div>
           <div class="field"><label>Vrijednost jamstva (€)</label><input type="number" id="inp-wval" placeholder="0.00" min="0" step="0.01" /></div>
         </div>
         <div class="fg2" style="margin-bottom:10px">
@@ -269,8 +268,8 @@
       </div>
 
       <div class="sum-grid">
-        <div class="metric"><div class="metric-lbl">Ukupna prodaja</div><div class="metric-val" id="sv">€0</div></div>
-        <div class="metric"><div class="metric-lbl">Jamstava</div><div class="metric-val" id="sw">0</div></div>
+        <div class="metric"><div class="metric-lbl">Vrijednost jamstava</div><div class="metric-val" id="sv">€0</div></div>
+        <div class="metric"><div class="metric-lbl">Prodanih jamstava</div><div class="metric-val" id="sw">0</div></div>
         <div class="metric"><div class="metric-lbl">Unosa</div><div class="metric-val" id="se">0</div></div>
       </div>
 
@@ -286,8 +285,8 @@
       </div>
 
       <div class="tabs-bar">
-        <button class="tab active" id="tv" onclick="swTab('value')">Po vrijednosti</button>
-        <button class="tab" id="tw" onclick="swTab('warranties')">Po jamstvima</button>
+        <button class="tab active" id="tv" onclick="swTab('value')">Po vrijednosti jamstava</button>
+        <button class="tab" id="tw" onclick="swTab('warranties')">Po broju jamstava</button>
         <button class="tab" id="ta" onclick="swTab('all')">Svi unosi</button>
       </div>
 
@@ -353,12 +352,17 @@ const DEFAULT_NAMES = [
 ];
 
 const WARRANTY_TYPES = [
-  "Produženo jamstvo 2 god.",
-  "Produženo jamstvo 3 god.",
-  "Produženo jamstvo 5 god.",
-  "Servisni paket",
-  "Kompletna zaštita",
-  "Premium zaštita"
+  "UAU Produljeno održavanje 3+2",
+  "UAU Produljeno održavanje 2+3god",
+  "UAU Produljeno održavanje 5+2god",
+  "UAU Produljeno održavanje 2+3god i zaštita od oštećenja 5god",
+  "UAU Produljeno održavanje 3+2god i zaštita od oštećenja 5god",
+  "UAU Produljeno održavanje 5+2god i zaštita od oštećenja 7god",
+  "UAU Zaštita od oštećenja i loma 1god Mobilni uređaji",
+  "UAU Zaštita od oštećenja i loma 2god Mobilni uređaji",
+  "UAU Produljeno održavanje 2+1god Mobilni uređaji",
+  "UAU Produljeno održavanje 2+1 god Električni bicikli i romobili",
+  "UAU Produljeno održavanje 2+1god i zaštita od oštećenja 3god Električni bicikli i romobili"
 ];
 
 const STREAM_COLORS = [
@@ -445,7 +449,9 @@ async function loadData() {
     const r = await fetch(API(), { headers: H() });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
-    entries = Array.isArray(d.record) ? d.record : [];
+    // filter out placeholder records (used when array is empty)
+    const raw = Array.isArray(d.record) ? d.record : [];
+    entries = raw.filter(e => e && e.id);
     render(); sync();
   } catch(e) {
     err('Greška pri učitavanju: ' + e.message);
@@ -456,11 +462,18 @@ async function loadData() {
 async function saveData() {
   document.getElementById('btn-add').disabled = true;
   try {
-    const r = await fetch(API(), { method: 'PUT', headers: H(), body: JSON.stringify(entries) });
+    // JSONBin odbija prazan [] — šaljemo placeholder ako nema unosa
+    const body = entries.length > 0 ? entries : [{ _placeholder: true }];
+    const r = await fetch(API(), { method: 'PUT', headers: H(), body: JSON.stringify(body) });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     sync(); err('');
-  } catch(e) { err('Greška pri spremanju: ' + e.message); }
-  finally { document.getElementById('btn-add').disabled = false; }
+    return true;
+  } catch(e) {
+    err('Greška pri spremanju: ' + e.message);
+    return false;
+  } finally {
+    document.getElementById('btn-add').disabled = false;
+  }
 }
 
 function save() { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
@@ -474,21 +487,29 @@ function err(m) { const e = document.getElementById('err-bar'); e.textContent = 
 async function addEntry() {
   const name = document.getElementById('inp-name').value;
   const date = document.getElementById('inp-date').value;
-  const value = parseFloat(document.getElementById('inp-val').value) || 0;
   const wtype = document.getElementById('inp-wtype').value;
   const wval = parseFloat(document.getElementById('inp-wval').value) || 0;
   const note = document.getElementById('inp-note').value.trim();
   if (!name) { document.getElementById('inp-name').focus(); return; }
   if (!date) { document.getElementById('inp-date').focus(); return; }
-  if (value <= 0 && !wtype) { document.getElementById('inp-val').focus(); return; }
-  entries.push({ id: Date.now().toString(), name, date, value, wtype, wval, note, ts: Date.now() });
+  if (!wtype) { document.getElementById('inp-wtype').focus(); return; }
+  if (wval <= 0) { document.getElementById('inp-wval').focus(); return; }
+  entries.push({ id: Date.now().toString(), name, date, wtype, wval, note, ts: Date.now() });
   render(); await saveData();
-  ['inp-val','inp-wtype','inp-wval','inp-note'].forEach(id => { document.getElementById(id).value = ''; });
+  ['inp-wtype','inp-wval','inp-note'].forEach(id => { document.getElementById(id).value = ''; });
 }
 
 async function del(id) {
   if (!confirm('Obrisati ovaj unos?')) return;
-  entries = entries.filter(e => e.id !== id); render(); await saveData();
+  const backup = [...entries];
+  entries = entries.filter(e => e.id !== id);
+  render();
+  const ok = await saveData();
+  if (!ok) {
+    entries = backup;
+    render();
+    err('Brisanje nije uspjelo — unos je vraćen. Pokušaj ponovo.');
+  }
 }
 
 // ── Filter & group ───────────────────────────────────────
@@ -507,8 +528,7 @@ function filt() {
 function group(list) {
   const m = {};
   for (const e of list) {
-    if (!m[e.name]) m[e.name] = { name: e.name, value: 0, wval: 0, wcnt: 0, cnt: 0 };
-    m[e.name].value += Number(e.value)||0;
+    if (!m[e.name]) m[e.name] = { name: e.name, wval: 0, wcnt: 0, cnt: 0 };
     m[e.name].wval += Number(e.wval)||0;
     if (e.wtype) m[e.name].wcnt++;
     m[e.name].cnt++;
@@ -527,10 +547,9 @@ function avc(n) { let h=0; for(let c of n) h=(h*31+c.charCodeAt(0))&0xffff; retu
 // ── Render ───────────────────────────────────────────────
 function render() {
   const fl = filt(), bp = group(fl);
-  const tv = fl.reduce((s,e)=>s+(Number(e.value)||0),0);
   const tw = fl.reduce((s,e)=>s+(Number(e.wval)||0),0);
   const tc = fl.filter(e=>e.wtype).length;
-  document.getElementById('sv').textContent = eur(tv);
+  document.getElementById('sv').textContent = eur(tw);
   document.getElementById('sw').textContent = tc;
   document.getElementById('se').textContent = fl.length;
   renderLB(fl, bp);
@@ -548,18 +567,19 @@ function renderLB(fl, bp) {
         <div class="av" style="background:${bg};color:${fg}">${ini(e.name)}</div>
         <div class="entry-body">
           <div class="ename">${esc(e.name)}</div>
-          <div class="esub">${new Date(e.date+'T12:00:00').toLocaleDateString('hr-HR')}${e.wtype?`<span class="wtag">${esc(e.wtype)}</span>`:''}${e.note?' · '+esc(e.note):''}</div>
+          <div class="esub">${new Date(e.date+'T12:00:00').toLocaleDateString('hr-HR')}${e.note?' · '+esc(e.note):''}</div>
+          <div class="esub" style="margin-top:2px">${e.wtype?`<span class="wtag">${esc(e.wtype)}</span>`:''}</div>
         </div>
         <div class="estats">
-          <div class="estat"><div class="sval">${eur(e.value)}</div><div class="slbl">prodaja</div></div>
-          ${e.wtype?`<div class="estat"><div class="sval hl">${eur(e.wval)}</div><div class="slbl">jamstvo</div></div>`:''}
+          <div class="estat"><div class="sval hl">${eur(e.wval)}</div><div class="slbl">jamstvo</div></div>
           <button class="del-btn" onclick="del('${e.id}')" title="Obriši">✕</button>
         </div>
       </div>`;
     }).join('')+'</div>';
     return;
   }
-  const sk = curTab==='warranties'?'wval':'value';
+  // Po vrijednosti = sort by wval, Po broju = sort by wcnt
+  const sk = curTab==='warranties' ? 'wcnt' : 'wval';
   const s = bp.sort((a,b)=>b[sk]-a[sk]);
   if (!s.length) { c.innerHTML='<div class="empty">Nema unosa za odabrani period.</div>'; return; }
   const mx = s[0][sk]||1;
@@ -575,11 +595,11 @@ function renderLB(fl, bp) {
       <div class="entry-body">
         <div class="ename">${esc(p.name)}</div>
         <div class="bar-w"><div class="bar-f" style="width:${pct}%"></div></div>
-        <div class="esub">${p.cnt} unos${p.cnt!==1?'a':''} · ${p.wcnt} jamstv${p.wcnt===1?'o':'a'}</div>
+        <div class="esub">${p.cnt} unos${p.cnt!==1?'a':''}</div>
       </div>
       <div class="estats">
-        <div class="estat"><div class="sval${sk==='value'?' hl':''}">${eur(p.value)}</div><div class="slbl">prodaja</div></div>
-        <div class="estat"><div class="sval${sk==='wval'?' hl':''}">${eur(p.wval)}</div><div class="slbl">jamstva</div></div>
+        <div class="estat"><div class="sval${sk==='wval'?' hl':''}">${eur(p.wval)}</div><div class="slbl">vrijednost</div></div>
+        <div class="estat"><div class="sval${sk==='wcnt'?' hl':''}">${p.wcnt}</div><div class="slbl">komada</div></div>
       </div>
     </div>`;
   }).join('')+'</div>';
