@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ljestvica prodaje</title>
+  <style>
+    :root {
+      --bg: #f0eff0;
+      --surface: #ffffff;
+      --surface2: #f5f4f5;
+      --text: #111110;
+      --text2: #555452;
+      --text3: #999896;
+      --border: rgba(0,0,0,0.09);
+      --border2: rgba(0,0,0,0.16);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --gold: #8a5800;
+      --gold-bg: #fdf6e3;
+      --gold-border: #d4a020;
+      --silver: #4f5460;
+      --silver-bg: #f2f3f5;
+      --silver-border: #9da0a8;
+      --bronze: #6b3e1a;
+      --bronze-bg: #fdf0e6;
+      --bronze-border: #b87040;
+      --accent: #1a5ef0;
+      --accent-bg: #eaf0ff;
+      --success: #166534;
+      --success-bg: #dcfce7;
+      --warn: #854d0e;
+      --warn-bg: #fff3e0;
+      --danger: #b91c1c;
+      --danger-bg: #fee2e2;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111110;
+        --surface: #1c1c1a;
+        --surface2: #252523;
+        --text: #f0efe9;
+        --text2: #a09f99;
+        --text3: #6b6a66;
+        --border: rgba(255,255,255,0.07);
+        --border2: rgba(255,255,255,0.14);
+        --gold: #f0c040;
+        --gold-bg: #231800;
+        --gold-border: #a07010;
+        --silver: #b0b4bc;
+        --silver-bg: #22232a;
+        --silver-border: #555860;
+        --bronze: #d49060;
+        --bronze-bg: #1f1200;
+        --bronze-border: #7a4a20;
+        --accent: #5090ff;
+        --accent-bg: #0c1e3e;
+        --success: #4ade80;
+        --success-bg: #052e16;
+        --warn: #fbbf24;
+        --warn-bg: #1c0f00;
+        --danger: #f87171;
+        --danger-bg: #2a0b0b;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; line-height: 1.5; }
+
+    /* setup */
+    #setup-screen { max-width: 500px; margin: 0 auto; padding: 2rem 1rem; display: none; }
+    .setup-logo { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .setup-sub { font-size: 13px; color: var(--text2); margin-bottom: 1.5rem; }
+    .step-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.2rem; margin-bottom: 10px; }
+    .step-num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; background: var(--text); color: var(--surface); border-radius: 50%; font-size: 11px; font-weight: 700; margin-right: 7px; }
+    .step-title { font-weight: 600; font-size: 14px; margin-bottom: 5px; }
+    .step-body { font-size: 13px; color: var(--text2); line-height: 1.6; }
+    .step-body a { color: var(--accent); }
+    .step-body code { background: var(--surface2); padding: 2px 5px; border-radius: 3px; font-size: 12px; font-family: monospace; }
+    .setup-f { margin-top: 1.25rem; }
+    .setup-f .field { margin-bottom: 10px; }
+    .setup-f label { display: block; font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+    .setup-f input { width: 100%; padding: 9px 11px; border: 1px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 14px; font-family: monospace; }
+    .setup-f input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    .btn-p { width: 100%; padding: 11px; background: var(--text); color: var(--bg); border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 6px; }
+    .btn-p:hover { opacity: .85; }
+    .setup-note { margin-top: 10px; font-size: 12px; color: var(--text3); text-align: center; }
+
+    /* app */
+    #app-screen { display: none; }
+    .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 1rem; position: sticky; top: 0; z-index: 100; }
+    .topbar-inner { max-width: 1100px; margin: 0 auto; display: flex; align-items: center; gap: 10px; height: 50px; }
+    .logo { font-size: 15px; font-weight: 700; }
+    .branch-lbl { font-size: 13px; color: var(--text3); }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 7px; }
+    .sync-bdg { font-size: 11px; padding: 3px 8px; border-radius: 20px; background: var(--success-bg); color: var(--success); display: none; font-weight: 600; }
+    .sync-bdg.on { display: inline-block; }
+    .btn-sm { font-size: 12px; padding: 5px 10px; border: 1px solid var(--border2); border-radius: var(--radius-sm); background: transparent; color: var(--text2); cursor: pointer; }
+    .btn-sm:hover { background: var(--surface2); }
+
+    /* layout */
+    .outer { max-width: 1100px; margin: 0 auto; padding: 1.1rem 1rem 3rem; display: grid; grid-template-columns: 1fr 330px; gap: 1.1rem; align-items: start; }
+    @media (max-width: 800px) { .outer { grid-template-columns: 1fr; } }
+
+    /* form */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.2rem; margin-bottom: .9rem; }
+    .sec-label { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 11px; }
+    .fg2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 9px; }
+    .fg3 { display: grid; grid-template-columns: 2fr 1.4fr 1fr; gap: 9px; margin-bottom: 9px; }
+    @media (max-width: 480px) { .fg2, .fg3 { grid-template-columns: 1fr; } }
+    .field label { display: block; font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+    .field input, .field select { width: 100%; padding: 8px 10px; border: 1px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 14px; font-family: inherit; }
+    .field input:focus, .field select:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    .btn-add { width: 100%; padding: 10px; background: var(--text); color: var(--bg); border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 700; cursor: pointer; }
+    .btn-add:hover { opacity: .85; }
+    .btn-add:disabled { opacity: .35; cursor: not-allowed; }
+
+    /* summary */
+    .sum-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin-bottom: .9rem; }
+    .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+    .metric-lbl { font-size: 10px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+    .metric-val { font-size: 20px; font-weight: 800; letter-spacing: -.4px; }
+
+    /* tabs */
+    .tabs-bar { display: flex; gap: 3px; background: var(--surface2); padding: 3px; border-radius: var(--radius-sm); margin-bottom: .8rem; }
+    .tab { flex: 1; padding: 7px 6px; font-size: 12px; font-weight: 700; cursor: pointer; background: transparent; border: none; color: var(--text2); border-radius: calc(var(--radius-sm) - 3px); transition: all .15s; }
+    .tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    .ctrl-row { display: flex; align-items: center; gap: 8px; margin-bottom: .8rem; }
+    .ctrl-row label { font-size: 12px; color: var(--text2); white-space: nowrap; }
+    .ctrl-row select { padding: 6px 9px; border: 1px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 13px; font-family: inherit; }
+    .ctrl-row select:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    .last-up { margin-left: auto; font-size: 11px; color: var(--text3); }
+
+    /* leaderboard */
+    .lboard { display: flex; flex-direction: column; gap: 5px; }
+    .entry { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 13px; display: flex; align-items: center; gap: 10px; }
+    .entry.p1 { background: var(--gold-bg); border-color: var(--gold-border); }
+    .entry.p2 { background: var(--silver-bg); border-color: var(--silver-border); }
+    .entry.p3 { background: var(--bronze-bg); border-color: var(--bronze-border); }
+    .rank { font-size: 15px; width: 26px; text-align: center; flex-shrink: 0; font-weight: 800; color: var(--text3); }
+    .entry.p1 .rank { color: var(--gold); }
+    .entry.p2 .rank { color: var(--silver); }
+    .entry.p3 .rank { color: var(--bronze); }
+    .av { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .entry-body { flex: 1; min-width: 0; }
+    .ename { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .esub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+    .bar-w { margin-top: 4px; background: var(--border); border-radius: 2px; height: 3px; }
+    .bar-f { height: 3px; border-radius: 2px; transition: width .4s; background: var(--accent); }
+    .entry.p1 .bar-f { background: var(--gold); }
+    .entry.p2 .bar-f { background: var(--silver); }
+    .entry.p3 .bar-f { background: var(--bronze); }
+    .estats { display: flex; gap: 13px; align-items: center; flex-shrink: 0; }
+    .estat { text-align: right; }
+    .sval { font-size: 13px; font-weight: 700; color: var(--text); }
+    .sval.hl { color: var(--accent); }
+    .entry.p1 .sval.hl { color: var(--gold); }
+    .entry.p2 .sval.hl { color: var(--silver); }
+    .entry.p3 .sval.hl { color: var(--bronze); }
+    .slbl { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .03em; }
+    .wtag { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 20px; background: var(--accent-bg); color: var(--accent); margin-left: 4px; }
+    .del-btn { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 15px; padding: 4px; border-radius: 4px; opacity: .4; line-height: 1; }
+    .del-btn:hover { opacity: 1; color: var(--danger); background: var(--danger-bg); }
+    .empty { text-align: center; padding: 2rem 1rem; color: var(--text2); font-size: 13px; }
+    .err-bar { background: var(--danger-bg); color: var(--danger); padding: 9px 13px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: .9rem; display: none; border: 1px solid var(--danger); }
+    .err-bar.on { display: block; }
+
+    /* panel */
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.2rem; position: sticky; top: 62px; }
+    .p-hdr { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: .9rem; }
+    .p-title { font-size: 13px; font-weight: 700; }
+    .p-month { font-size: 11px; color: var(--text3); }
+    .tgt-row { display: flex; gap: 6px; align-items: center; margin-bottom: 1rem; }
+    .tgt-row label { font-size: 11px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+    .tgt-row input { flex: 1; padding: 7px 9px; border: 1px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 13px; font-family: inherit; min-width: 0; }
+    .tgt-row input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    .btn-set { padding: 7px 11px; background: var(--text); color: var(--bg); border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .btn-set:hover { opacity: .85; }
+
+    /* arc */
+    .arc-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 1rem; }
+    .arc-svg text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+    .arc-lbl { font-size: 11px; color: var(--text3); margin-top: 2px; text-align: center; }
+
+    /* streams */
+    .str-title { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+    .str-row { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+    .str-name { font-size: 12px; font-weight: 600; color: var(--text2); width: 64px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .str-bw { flex: 1; background: var(--border); border-radius: 3px; height: 8px; overflow: hidden; }
+    .str-bf { height: 8px; border-radius: 3px; transition: width .4s; }
+    .str-val { font-size: 11px; font-weight: 700; width: 50px; text-align: right; flex-shrink: 0; }
+    .ldr-box { margin-top: .9rem; background: var(--warn-bg); border: 1px solid var(--gold-border); border-radius: var(--radius-sm); padding: 9px 12px; }
+    .ldr-t { font-size: 10px; font-weight: 700; color: var(--warn); text-transform: uppercase; letter-spacing: .05em; }
+    .ldr-name { font-size: 15px; font-weight: 800; color: var(--text); margin-top: 2px; }
+    .ldr-val { font-size: 12px; color: var(--text2); margin-top: 1px; }
+    .no-data { font-size: 13px; color: var(--text3); text-align: center; padding: .8rem; }
+
+    /* modal */
+    #names-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; align-items: center; justify-content: center; }
+    .modal-box { background: var(--surface); border-radius: var(--radius); padding: 1.4rem; width: 340px; max-width: 92vw; }
+    .modal-title { font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+    .modal-sub { font-size: 12px; color: var(--text2); margin-bottom: 10px; }
+    .modal-ta { width: 100%; height: 200px; padding: 9px; border: 1px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 14px; font-family: inherit; resize: vertical; }
+    .modal-ta:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    .modal-btns { display: flex; gap: 8px; margin-top: 11px; }
+  </style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup-screen">
+  <div class="setup-logo">Ljestvica prodaje</div>
+  <p class="setup-sub">Jednokratno postavljanje — samo jednom po pregledniku</p>
+  <div class="step-card">
+    <div class="step-title"><span class="step-num">1</span> Besplatni JSONBin račun</div>
+    <div class="step-body">Idi na <a href="https://jsonbin.io" target="_blank">jsonbin.io</a> i registriraj se. Ne treba kreditna kartica.</div>
+  </div>
+  <div class="step-card">
+    <div class="step-title"><span class="step-num">2</span> API ključ</div>
+    <div class="step-body">Ikona profila → <strong>API Keys</strong> → kopiraj <code>Master Key</code> (počinje s <code>$2a$10$</code>).</div>
+  </div>
+  <div class="step-card">
+    <div class="step-title"><span class="step-num">3</span> Bin ID</div>
+    <div class="step-body">Klikni <strong>+ Create Bin</strong>, upiši <code>[]</code>, spremi. Kopiraj <strong>Bin ID</strong> iz URL-a.</div>
+  </div>
+  <div class="setup-f">
+    <div class="field"><label>Master API Key</label><input type="password" id="sk" placeholder="$2a$10$..." /></div>
+    <div class="field"><label>Bin ID</label><input type="text" id="sb" placeholder="6830abc123..." /></div>
+    <div class="field"><label>Naziv poslovnice</label><input type="text" id="sn" placeholder="npr. Zagreb Centar" /></div>
+    <button class="btn-p" onclick="setupApp()">Spremi i pokreni →</button>
+    <p class="setup-note">Postavke se čuvaju samo u tvojem pregledniku.</p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="logo">Ljestvica prodaje</div>
+      <span class="branch-lbl" id="branch-lbl"></span>
+      <div class="topbar-right">
+        <span class="sync-bdg" id="sync-bdg">✓ Sinkronizirano</span>
+        <button class="btn-sm" onclick="openNames()">Uredi djelatnike</button>
+        <button class="btn-sm" onclick="resetCfg()">⚙</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="outer">
+    <!-- Lijeva kolona -->
+    <div>
+      <div class="err-bar" id="err-bar"></div>
+
+      <div class="card">
+        <div class="sec-label">Unesi prodaju</div>
+        <div class="fg2">
+          <div class="field"><label>Djelatnik</label><select id="inp-name"><option value="">— Odaberi —</option></select></div>
+          <div class="field"><label>Datum</label><input type="date" id="inp-date" /></div>
+        </div>
+        <div class="fg3">
+          <div class="field"><label>Prodajna vrijednost (€)</label><input type="number" id="inp-val" placeholder="0.00" min="0" step="0.01" /></div>
+          <div class="field"><label>Vrsta jamstva</label><select id="inp-wtype"><option value="">— Bez jamstva —</option></select></div>
+          <div class="field"><label>Vrijednost jamstva (€)</label><input type="number" id="inp-wval" placeholder="0.00" min="0" step="0.01" /></div>
+        </div>
+        <div class="fg2" style="margin-bottom:10px">
+          <div class="field"><label>Napomena</label><input type="text" id="inp-note" placeholder="Opcionalno" /></div>
+          <div></div>
+        </div>
+        <button class="btn-add" id="btn-add" onclick="addEntry()">+ Dodaj unos</button>
+      </div>
+
+      <div class="sum-grid">
+        <div class="metric"><div class="metric-lbl">Ukupna prodaja</div><div class="metric-val" id="sv">€0</div></div>
+        <div class="metric"><div class="metric-lbl">Jamstava</div><div class="metric-val" id="sw">0</div></div>
+        <div class="metric"><div class="metric-lbl">Unosa</div><div class="metric-val" id="se">0</div></div>
+      </div>
+
+      <div class="ctrl-row">
+        <label>Period:</label>
+        <select id="fp" onchange="render()">
+          <option value="all">Svi unosi</option>
+          <option value="today">Danas</option>
+          <option value="week">Ovaj tjedan</option>
+          <option value="month" selected>Ovaj mjesec</option>
+        </select>
+        <span class="last-up" id="lu"></span>
+      </div>
+
+      <div class="tabs-bar">
+        <button class="tab active" id="tv" onclick="swTab('value')">Po vrijednosti</button>
+        <button class="tab" id="tw" onclick="swTab('warranties')">Po jamstvima</button>
+        <button class="tab" id="ta" onclick="swTab('all')">Svi unosi</button>
+      </div>
+
+      <div id="lbc"><div class="empty" style="color:var(--text3)">Učitavam…</div></div>
+    </div>
+
+    <!-- Desna kolona — panel -->
+    <div class="panel">
+      <div class="p-hdr">
+        <span class="p-title">🛡 Jamstveni target</span>
+        <span class="p-month" id="p-month"></span>
+      </div>
+      <div class="tgt-row">
+        <label>Cilj (€)</label>
+        <input type="number" id="tgt-inp" placeholder="5000" min="0" step="100" />
+        <button class="btn-set" onclick="setTarget()">Postavi</button>
+      </div>
+
+      <!-- Arc progress -->
+      <div class="arc-wrap">
+        <svg id="arc-svg" viewBox="0 0 200 126" width="200" height="126" role="img" aria-label="Kružni grafikon napretka prema cilju">
+          <path id="arc-bg" stroke="var(--border2)" stroke-width="13" fill="none" stroke-linecap="round"/>
+          <path id="arc-fg" stroke="var(--accent)" stroke-width="13" fill="none" stroke-linecap="round"/>
+          <text id="arc-pct" x="100" y="80" text-anchor="middle" font-size="26" font-weight="800" fill="var(--text)" font-family="inherit">0%</text>
+          <text id="arc-sub" x="100" y="98" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="inherit" letter-spacing=".04em">OD CILJA</text>
+        </svg>
+        <div class="arc-lbl" id="arc-lbl">Postavi cilj gore</div>
+      </div>
+
+      <!-- Streams -->
+      <div class="str-title">Doprinosi djelatnika →</div>
+      <div id="str-cont"><div class="no-data">Nema podataka</div></div>
+      <div id="ldr-cont"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal - uredi djelatnike -->
+<div id="names-modal">
+  <div class="modal-box">
+    <div class="modal-title">Uredi listu djelatnika</div>
+    <div class="modal-sub">Jedno ime po retku</div>
+    <textarea class="modal-ta" id="names-ta"></textarea>
+    <div class="modal-btns">
+      <button class="btn-add" onclick="saveNames()" style="flex:1">Spremi</button>
+      <button class="btn-sm" onclick="closeNames()" style="flex:1;padding:10px">Otkaži</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══ KONFIGURACIJA — uredi po svom timu ══════════════════════
+
+const DEFAULT_NAMES = [
+  "Ana Kovač",
+  "Pero Matić",
+  "Ivana Horvat",
+  "Marko Jurić",
+  "Maja Novak",
+  "Ivan Blažević",
+  "Petra Šimić",
+  "Tomislav Knez"
+];
+
+const WARRANTY_TYPES = [
+  "Produženo jamstvo 2 god.",
+  "Produženo jamstvo 3 god.",
+  "Produženo jamstvo 5 god.",
+  "Servisni paket",
+  "Kompletna zaštita",
+  "Premium zaštita"
+];
+
+const STREAM_COLORS = [
+  "#1a5ef0","#1a7a3a","#a86c00","#7c2090",
+  "#b91c1c","#0e7878","#6b4000","#1a409a"
+];
+
+// ═══════════════════════════════════════════════════════════
+
+const CFG_KEY = 'sales_app_v2';
+let cfg = null, entries = [], curTab = 'value', target = 0;
+const todayStr = new Date().toISOString().split('T')[0];
+
+function init() {
+  document.getElementById('inp-date').value = todayStr;
+  // Month label
+  const mn = ['Siječanj','Veljača','Ožujak','Travanj','Svibanj','Lipanj','Srpanj','Kolovoz','Rujan','Listopad','Studeni','Prosinac'];
+  const now = new Date();
+  document.getElementById('p-month').textContent = mn[now.getMonth()] + ' ' + now.getFullYear();
+  // Warranty types
+  const ws = document.getElementById('inp-wtype');
+  WARRANTY_TYPES.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; ws.appendChild(o); });
+
+  const s = localStorage.getItem(CFG_KEY);
+  if (s) { cfg = JSON.parse(s); startApp(); }
+  else document.getElementById('setup-screen').style.display = 'block';
+}
+
+function setupApp() {
+  const k = document.getElementById('sk').value.trim();
+  const b = document.getElementById('sb').value.trim();
+  const n = document.getElementById('sn').value.trim();
+  if (!k || !b) { alert('Unesi API Key i Bin ID.'); return; }
+  cfg = { key: k, bin: b, name: n, names: DEFAULT_NAMES, target: 0 };
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  startApp();
+}
+
+function startApp() {
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  if (cfg.name) document.getElementById('branch-lbl').textContent = '— ' + cfg.name;
+  if (!cfg.names) cfg.names = DEFAULT_NAMES;
+  target = cfg.target || 0;
+  if (target) document.getElementById('tgt-inp').value = target;
+  buildNames(); loadData();
+}
+
+function buildNames() {
+  const s = document.getElementById('inp-name');
+  const cur = s.value;
+  s.innerHTML = '<option value="">— Odaberi —</option>';
+  (cfg.names || DEFAULT_NAMES).forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; s.appendChild(o); });
+  if (cur) s.value = cur;
+}
+
+function openNames() {
+  document.getElementById('names-ta').value = (cfg.names || DEFAULT_NAMES).join('\n');
+  document.getElementById('names-modal').style.display = 'flex';
+}
+function closeNames() { document.getElementById('names-modal').style.display = 'none'; }
+function saveNames() {
+  const ls = document.getElementById('names-ta').value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!ls.length) { alert('Lista ne može biti prazna.'); return; }
+  cfg.names = ls; save(); buildNames(); closeNames();
+}
+
+function setTarget() {
+  target = parseFloat(document.getElementById('tgt-inp').value) || 0;
+  cfg.target = target; save(); render();
+}
+
+function resetCfg() {
+  if (!confirm('Promijeniti postavke? (Podaci u bazi ostaju netaknuti)')) return;
+  localStorage.removeItem(CFG_KEY); location.reload();
+}
+
+// ── API ──────────────────────────────────────────────────
+const API = () => `https://api.jsonbin.io/v3/b/${cfg.bin}`;
+const H = () => ({ 'Content-Type': 'application/json', 'X-Master-Key': cfg.key, 'X-Bin-Versioning': 'false' });
+
+async function loadData() {
+  try {
+    const r = await fetch(API(), { headers: H() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    entries = Array.isArray(d.record) ? d.record : [];
+    render(); sync();
+  } catch(e) {
+    err('Greška pri učitavanju: ' + e.message);
+    document.getElementById('lbc').innerHTML = '<div class="empty">Nije moguće dohvatiti podatke.<br>Provjeri API Key i Bin ID.</div>';
+  }
+}
+
+async function saveData() {
+  document.getElementById('btn-add').disabled = true;
+  try {
+    const r = await fetch(API(), { method: 'PUT', headers: H(), body: JSON.stringify(entries) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    sync(); err('');
+  } catch(e) { err('Greška pri spremanju: ' + e.message); }
+  finally { document.getElementById('btn-add').disabled = false; }
+}
+
+function save() { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
+function sync() {
+  document.getElementById('lu').textContent = new Date().toLocaleTimeString('hr-HR', { hour: '2-digit', minute: '2-digit' });
+  const b = document.getElementById('sync-bdg'); b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 2500);
+}
+function err(m) { const e = document.getElementById('err-bar'); e.textContent = m; e.classList.toggle('on', !!m); }
+
+// ── CRUD ─────────────────────────────────────────────────
+async function addEntry() {
+  const name = document.getElementById('inp-name').value;
+  const date = document.getElementById('inp-date').value;
+  const value = parseFloat(document.getElementById('inp-val').value) || 0;
+  const wtype = document.getElementById('inp-wtype').value;
+  const wval = parseFloat(document.getElementById('inp-wval').value) || 0;
+  const note = document.getElementById('inp-note').value.trim();
+  if (!name) { document.getElementById('inp-name').focus(); return; }
+  if (!date) { document.getElementById('inp-date').focus(); return; }
+  if (value <= 0 && !wtype) { document.getElementById('inp-val').focus(); return; }
+  entries.push({ id: Date.now().toString(), name, date, value, wtype, wval, note, ts: Date.now() });
+  render(); await saveData();
+  ['inp-val','inp-wtype','inp-wval','inp-note'].forEach(id => { document.getElementById(id).value = ''; });
+}
+
+async function del(id) {
+  if (!confirm('Obrisati ovaj unos?')) return;
+  entries = entries.filter(e => e.id !== id); render(); await saveData();
+}
+
+// ── Filter & group ───────────────────────────────────────
+function filt() {
+  const p = document.getElementById('fp').value, now = new Date();
+  return entries.filter(e => {
+    if (p === 'all') return true;
+    const d = new Date(e.date + 'T12:00:00');
+    if (p === 'today') return e.date === todayStr;
+    if (p === 'week') { const dow = now.getDay()===0?6:now.getDay()-1; const m = new Date(now); m.setDate(now.getDate()-dow); m.setHours(0,0,0,0); return d >= m; }
+    if (p === 'month') return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+    return true;
+  });
+}
+
+function group(list) {
+  const m = {};
+  for (const e of list) {
+    if (!m[e.name]) m[e.name] = { name: e.name, value: 0, wval: 0, wcnt: 0, cnt: 0 };
+    m[e.name].value += Number(e.value)||0;
+    m[e.name].wval += Number(e.wval)||0;
+    if (e.wtype) m[e.name].wcnt++;
+    m[e.name].cnt++;
+  }
+  return Object.values(m);
+}
+
+// ── Helpers ──────────────────────────────────────────────
+function eur(v) { return '€'+Number(v).toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function eurS(v) { return v>=1000 ? '€'+(v/1000).toFixed(1).replace('.0','')+'k' : '€'+Math.round(v); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function ini(n) { return n.trim().split(/\s+/).map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?'; }
+const AVC = [['#dbeafe','#1e3a8a'],['#dcfce7','#14532d'],['#fef3c7','#78350f'],['#ede9fe','#3b0764'],['#fce7f3','#831843'],['#cffafe','#164e63'],['#f0fdf4','#052e16'],['#ffedd5','#7c2d12']];
+function avc(n) { let h=0; for(let c of n) h=(h*31+c.charCodeAt(0))&0xffff; return AVC[h%AVC.length]; }
+
+// ── Render ───────────────────────────────────────────────
+function render() {
+  const fl = filt(), bp = group(fl);
+  const tv = fl.reduce((s,e)=>s+(Number(e.value)||0),0);
+  const tw = fl.reduce((s,e)=>s+(Number(e.wval)||0),0);
+  const tc = fl.filter(e=>e.wtype).length;
+  document.getElementById('sv').textContent = eur(tv);
+  document.getElementById('sw').textContent = tc;
+  document.getElementById('se').textContent = fl.length;
+  renderLB(fl, bp);
+  renderPanel(bp, tw);
+}
+
+function renderLB(fl, bp) {
+  const c = document.getElementById('lbc');
+  if (curTab === 'all') {
+    const s = [...fl].sort((a,b)=>new Date(b.date)-new Date(a.date)||b.ts-a.ts);
+    if (!s.length) { c.innerHTML='<div class="empty">Nema unosa za odabrani period.</div>'; return; }
+    c.innerHTML = '<div class="lboard">'+s.map(e=>{
+      const [bg,fg]=avc(e.name);
+      return `<div class="entry">
+        <div class="av" style="background:${bg};color:${fg}">${ini(e.name)}</div>
+        <div class="entry-body">
+          <div class="ename">${esc(e.name)}</div>
+          <div class="esub">${new Date(e.date+'T12:00:00').toLocaleDateString('hr-HR')}${e.wtype?`<span class="wtag">${esc(e.wtype)}</span>`:''}${e.note?' · '+esc(e.note):''}</div>
+        </div>
+        <div class="estats">
+          <div class="estat"><div class="sval">${eur(e.value)}</div><div class="slbl">prodaja</div></div>
+          ${e.wtype?`<div class="estat"><div class="sval hl">${eur(e.wval)}</div><div class="slbl">jamstvo</div></div>`:''}
+          <button class="del-btn" onclick="del('${e.id}')" title="Obriši">✕</button>
+        </div>
+      </div>`;
+    }).join('')+'</div>';
+    return;
+  }
+  const sk = curTab==='warranties'?'wval':'value';
+  const s = bp.sort((a,b)=>b[sk]-a[sk]);
+  if (!s.length) { c.innerHTML='<div class="empty">Nema unosa za odabrani period.</div>'; return; }
+  const mx = s[0][sk]||1;
+  const md = ['🥇','🥈','🥉'];
+  c.innerHTML = '<div class="lboard">'+s.map((p,i)=>{
+    const pct = Math.round((p[sk]/mx)*100);
+    const pcls = i<3?` p${i+1}`:'';
+    const rl = i<3?md[i]:(i+1)+'.';
+    const [bg,fg]=avc(p.name);
+    return `<div class="entry${pcls}">
+      <div class="rank">${rl}</div>
+      <div class="av" style="background:${bg};color:${fg}">${ini(p.name)}</div>
+      <div class="entry-body">
+        <div class="ename">${esc(p.name)}</div>
+        <div class="bar-w"><div class="bar-f" style="width:${pct}%"></div></div>
+        <div class="esub">${p.cnt} unos${p.cnt!==1?'a':''} · ${p.wcnt} jamstv${p.wcnt===1?'o':'a'}</div>
+      </div>
+      <div class="estats">
+        <div class="estat"><div class="sval${sk==='value'?' hl':''}">${eur(p.value)}</div><div class="slbl">prodaja</div></div>
+        <div class="estat"><div class="sval${sk==='wval'?' hl':''}">${eur(p.wval)}</div><div class="slbl">jamstva</div></div>
+      </div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+function renderPanel(bp, totalW) {
+  const pct = target > 0 ? Math.min(Math.round((totalW/target)*100),100) : 0;
+  drawArc(pct);
+  document.getElementById('arc-lbl').textContent = target > 0
+    ? `${eur(totalW)} od ${eur(target)} cilja`
+    : `Ukupno jamstava: ${eur(totalW)}`;
+
+  const s = bp.filter(p=>p.wval>0).sort((a,b)=>b.wval-a.wval);
+  const sc = document.getElementById('str-cont');
+  if (!s.length) { sc.innerHTML='<div class="no-data">Nema prodanih jamstava</div>'; document.getElementById('ldr-cont').innerHTML=''; return; }
+  const mx = s[0].wval||1;
+  sc.innerHTML = s.map((p,i)=>{
+    const w = Math.round((p.wval/mx)*100);
+    const col = STREAM_COLORS[i%STREAM_COLORS.length];
+    return `<div class="str-row">
+      <div class="str-name" title="${esc(p.name)}">${esc(p.name.split(' ')[0])}</div>
+      <div class="str-bw"><div class="str-bf" style="width:${w}%;background:${col}"></div></div>
+      <div class="str-val" style="color:${col}">${eurS(p.wval)}</div>
+    </div>`;
+  }).join('');
+
+  const ldr = s[0];
+  document.getElementById('ldr-cont').innerHTML = `<div class="ldr-box">
+    <div class="ldr-t">🏆 Lider jamstava</div>
+    <div class="ldr-name">${esc(ldr.name)}</div>
+    <div class="ldr-val">${eur(ldr.wval)} · ${ldr.wcnt} ugovor${ldr.wcnt!==1?'a':''}</div>
+  </div>`;
+}
+
+function drawArc(pct) {
+  const cx=100,cy=108,r=72,sa=-210,ea=30,td=240;
+  function pt(deg) { const rad=deg*Math.PI/180; return [cx+r*Math.cos(rad),cy+r*Math.sin(rad)]; }
+  function path(fd,td2) {
+    const [x1,y1]=pt(fd),[x2,y2]=pt(td2);
+    return `M${x1} ${y1} A${r} ${r} 0 ${td2-fd>180?1:0} 1 ${x2} ${y2}`;
+  }
+  document.getElementById('arc-bg').setAttribute('d', path(sa,ea));
+  if (pct > 0) {
+    const fd = sa + (td * Math.min(pct,100)/100);
+    document.getElementById('arc-fg').setAttribute('d', path(sa,fd));
+    const col = pct>=100?'#166534':pct>=70?'#1a5ef0':'#a86c00';
+    document.getElementById('arc-fg').setAttribute('stroke', col);
+  } else {
+    document.getElementById('arc-fg').setAttribute('d','');
+  }
+  document.getElementById('arc-pct').textContent = pct+'%';
+}
+
+function swTab(t) {
+  curTab=t;
+  ['value','warranties','all'].forEach(x=>document.getElementById('t'+x[0]).classList.toggle('active',x===t));
+  render();
+}
+
+init();
+</script>
+</body>
+</html>
