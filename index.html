@@ -261,7 +261,7 @@
           <div class="field"><label>Vrijednost jamstva (€)</label><input type="number" id="inp-wval" placeholder="0.00" min="0" step="0.01" /></div>
         </div>
         <div class="fg2" style="margin-bottom:10px">
-          <div class="field"><label>Napomena</label><input type="text" id="inp-note" placeholder="Opcionalno" /></div>
+          <div class="field"><label>Broj računa / ponude</label><input type="text" id="inp-note" placeholder="" /></div>
           <div></div>
         </div>
         <button class="btn-add" id="btn-add" onclick="addEntry()">+ Dodaj unos</button>
@@ -424,15 +424,17 @@ function openNames() {
   document.getElementById('names-modal').style.display = 'flex';
 }
 function closeNames() { document.getElementById('names-modal').style.display = 'none'; }
-function saveNames() {
+async function saveNames() {
   const ls = document.getElementById('names-ta').value.split('\n').map(s => s.trim()).filter(Boolean);
   if (!ls.length) { alert('Lista ne može biti prazna.'); return; }
   cfg.names = ls; save(); buildNames(); closeNames();
+  await syncSettings();
 }
 
-function setTarget() {
+async function setTarget() {
   target = parseFloat(document.getElementById('tgt-inp').value) || 0;
   cfg.target = target; save(); render();
+  await syncSettings();
 }
 
 function resetCfg() {
@@ -449,9 +451,26 @@ async function loadData() {
     const r = await fetch(API(), { headers: H() });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
-    // filter out placeholder records (used when array is empty)
-    const raw = Array.isArray(d.record) ? d.record : [];
-    entries = raw.filter(e => e && e.id);
+    const rec = d.record;
+    // Nova struktura: { entries, names, target }
+    // Stara struktura: plain array — backwards compatible
+    if (rec && rec.entries !== undefined) {
+      const raw = Array.isArray(rec.entries) ? rec.entries : [];
+      entries = raw.filter(e => e && e.id);
+      // Sinkroniziraj dijeljene postavke
+      if (Array.isArray(rec.names) && rec.names.length) {
+        cfg.names = rec.names; save(); buildNames();
+      }
+      if (rec.target !== undefined && rec.target !== null) {
+        target = Number(rec.target);
+        cfg.target = target; save();
+        document.getElementById('tgt-inp').value = target || '';
+      }
+    } else {
+      // Stara struktura (plain array)
+      const raw = Array.isArray(rec) ? rec : [];
+      entries = raw.filter(e => e && e.id);
+    }
     render(); sync();
   } catch(e) {
     err('Greška pri učitavanju: ' + e.message);
@@ -462,8 +481,7 @@ async function loadData() {
 async function saveData() {
   document.getElementById('btn-add').disabled = true;
   try {
-    // JSONBin odbija prazan [] — šaljemo placeholder ako nema unosa
-    const body = entries.length > 0 ? entries : [{ _placeholder: true }];
+    const body = buildRecord();
     const r = await fetch(API(), { method: 'PUT', headers: H(), body: JSON.stringify(body) });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     sync(); err('');
@@ -474,6 +492,25 @@ async function saveData() {
   } finally {
     document.getElementById('btn-add').disabled = false;
   }
+}
+
+function buildRecord() {
+  // Uvijek spremi kao objekt s entries, names i target
+  return {
+    entries: entries.length > 0 ? entries : [],
+    names: cfg.names || DEFAULT_NAMES,
+    target: target
+  };
+}
+
+async function syncSettings() {
+  // Spremi samo postavke (names + target) bez mijenjanja unosa
+  try {
+    const body = buildRecord();
+    const r = await fetch(API(), { method: 'PUT', headers: H(), body: JSON.stringify(body) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    sync(); err('');
+  } catch(e) { err('Greška pri sinkronizaciji: ' + e.message); }
 }
 
 function save() { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
