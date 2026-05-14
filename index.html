@@ -261,16 +261,15 @@
           <div class="field"><label>Vrijednost jamstva (€)</label><input type="number" id="inp-wval" placeholder="0.00" min="0" step="0.01" /></div>
         </div>
         <div class="fg2" style="margin-bottom:10px">
-          <div class="field"><label>Broj računa / ponude</label><input type="text" id="inp-note" placeholder="" /></div>
+          <div class="field"><label>Broj računa</label><input type="text" id="inp-note" placeholder="" /></div>
           <div></div>
         </div>
         <button class="btn-add" id="btn-add" onclick="addEntry()">+ Dodaj unos</button>
       </div>
 
-      <div class="sum-grid">
+      <div class="sum-grid" style="grid-template-columns:1fr 1fr">
         <div class="metric"><div class="metric-lbl">Vrijednost jamstava</div><div class="metric-val" id="sv">€0</div></div>
         <div class="metric"><div class="metric-lbl">Prodanih jamstava</div><div class="metric-val" id="sw">0</div></div>
-        <div class="metric"><div class="metric-lbl">Unosa</div><div class="metric-val" id="se">0</div></div>
       </div>
 
       <div class="ctrl-row">
@@ -285,8 +284,8 @@
       </div>
 
       <div class="tabs-bar">
-        <button class="tab active" id="tv" onclick="swTab('value')">Po vrijednosti jamstava</button>
-        <button class="tab" id="tw" onclick="swTab('warranties')">Po broju jamstava</button>
+        <button class="tab active" id="tw" onclick="swTab('warranties')">Po broju jamstava</button>
+        <button class="tab" id="tv" onclick="swTab('value')">Po vrijednosti jamstava</button>
         <button class="tab" id="ta" onclick="swTab('all')">Svi unosi</button>
       </div>
 
@@ -373,7 +372,7 @@ const STREAM_COLORS = [
 // ═══════════════════════════════════════════════════════════
 
 const CFG_KEY = 'sales_app_v2';
-let cfg = null, entries = [], curTab = 'value', target = 0;
+let cfg = null, entries = [], curTab = 'warranties', target = 0;
 const todayStr = new Date().toISOString().split('T')[0];
 
 function init() {
@@ -521,6 +520,11 @@ function sync() {
 function err(m) { const e = document.getElementById('err-bar'); e.textContent = m; e.classList.toggle('on', !!m); }
 
 // ── CRUD ─────────────────────────────────────────────────
+function normalizeInvoice(s) {
+  // Ukloni razmake, crte, kose crte i pretvori u velika slova za usporedbu
+  return s.replace(/[\s\-\/\\_.]/g, '').toUpperCase();
+}
+
 async function addEntry() {
   const name = document.getElementById('inp-name').value;
   const date = document.getElementById('inp-date').value;
@@ -531,6 +535,18 @@ async function addEntry() {
   if (!date) { document.getElementById('inp-date').focus(); return; }
   if (!wtype) { document.getElementById('inp-wtype').focus(); return; }
   if (wval <= 0) { document.getElementById('inp-wval').focus(); return; }
+  // Provjera duplikata računa
+  if (note) {
+    const norm = normalizeInvoice(note);
+    const dup = entries.find(e => e.note && normalizeInvoice(e.note) === norm);
+    if (dup) {
+      err('Račun već upisan — ' + dup.name + ', ' + new Date(dup.date+'T12:00:00').toLocaleDateString('hr-HR'));
+      document.getElementById('inp-note').focus();
+      document.getElementById('inp-note').select();
+      return;
+    }
+  }
+  err('');
   entries.push({ id: Date.now().toString(), name, date, wtype, wval, note, ts: Date.now() });
   render(); await saveData();
   ['inp-wtype','inp-wval','inp-note'].forEach(id => { document.getElementById(id).value = ''; });
@@ -588,7 +604,6 @@ function render() {
   const tc = fl.filter(e=>e.wtype).length;
   document.getElementById('sv').textContent = eur(tw);
   document.getElementById('sw').textContent = tc;
-  document.getElementById('se').textContent = fl.length;
   renderLB(fl, bp);
   renderPanel(bp, tw);
 }
@@ -596,15 +611,28 @@ function render() {
 function renderLB(fl, bp) {
   const c = document.getElementById('lbc');
   if (curTab === 'all') {
-    const s = [...fl].sort((a,b)=>new Date(b.date)-new Date(a.date)||b.ts-a.ts);
-    if (!s.length) { c.innerHTML='<div class="empty">Nema unosa za odabrani period.</div>'; return; }
-    c.innerHTML = '<div class="lboard">'+s.map(e=>{
+    // Employee filter
+    const names = [...new Set(fl.map(e=>e.name))].sort();
+    const filtSel = document.getElementById('filter-employee');
+    const prevVal = filtSel ? filtSel.value : '';
+    const filterHtml = `<div class="ctrl-row" style="margin-bottom:.7rem">
+      <label>Djelatnik:</label>
+      <select id="filter-employee" onchange="render()" style="padding:6px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;">
+        <option value="">Svi djelatnici</option>
+        ${names.map(n=>`<option value="${esc(n)}"${n===prevVal?' selected':''}>${esc(n)}</option>`).join('')}
+      </select>
+    </div>`;
+    const empFilter = document.getElementById('filter-employee') ? document.getElementById('filter-employee').value : '';
+    const filtered = empFilter ? fl.filter(e=>e.name===empFilter) : fl;
+    const s = [...filtered].sort((a,b)=>new Date(b.date)-new Date(a.date)||b.ts-a.ts);
+    if (!s.length) { c.innerHTML=filterHtml+'<div class="empty">Nema unosa za odabrani period.</div>'; return; }
+    c.innerHTML = filterHtml+'<div class="lboard">'+s.map(e=>{
       const [bg,fg]=avc(e.name);
       return `<div class="entry">
         <div class="av" style="background:${bg};color:${fg}">${ini(e.name)}</div>
         <div class="entry-body">
           <div class="ename">${esc(e.name)}</div>
-          <div class="esub">${new Date(e.date+'T12:00:00').toLocaleDateString('hr-HR')}${e.note?' · '+esc(e.note):''}</div>
+          <div class="esub">${new Date(e.date+'T12:00:00').toLocaleDateString('hr-HR')}${e.note?` · <strong>${esc(e.note)}</strong>`:''}</div>
           <div class="esub" style="margin-top:2px">${e.wtype?`<span class="wtag">${esc(e.wtype)}</span>`:''}</div>
         </div>
         <div class="estats">
