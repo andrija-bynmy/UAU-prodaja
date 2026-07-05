@@ -273,13 +273,10 @@
       </div>
 
       <div class="ctrl-row">
-        <label>Period:</label>
-        <select id="fp" onchange="render()">
-          <option value="all">Svi unosi</option>
-          <option value="today">Danas</option>
-          <option value="week">Ovaj tjedan</option>
-          <option value="month" selected>Ovaj mjesec</option>
-        </select>
+        <label>Mjesec:</label>
+        <button class="btn-sm" id="btn-prev" onclick="changeMonth(-1)" style="padding:5px 10px;font-size:16px;">‹</button>
+        <select id="fp" onchange="render()" style="font-weight:600;min-width:160px;text-align:center;"></select>
+        <button class="btn-sm" id="btn-next" onclick="changeMonth(1)" style="padding:5px 10px;font-size:16px;">›</button>
         <span class="last-up" id="lu"></span>
       </div>
 
@@ -369,6 +366,9 @@ const STREAM_COLORS = [
   "#b91c1c","#0e7878","#6b4000","#1a409a"
 ];
 
+const MN = ['Siječanj','Veljača','Ožujak','Travanj','Svibanj','Lipanj',
+            'Srpanj','Kolovoz','Rujan','Listopad','Studeni','Prosinac'];
+
 // ═══════════════════════════════════════════════════════════
 
 const CFG_KEY = 'sales_app_v2';
@@ -378,9 +378,7 @@ const todayStr = new Date().toISOString().split('T')[0];
 function init() {
   document.getElementById('inp-date').value = todayStr;
   // Month label
-  const mn = ['Siječanj','Veljača','Ožujak','Travanj','Svibanj','Lipanj','Srpanj','Kolovoz','Rujan','Listopad','Studeni','Prosinac'];
-  const now = new Date();
-  document.getElementById('p-month').textContent = mn[now.getMonth()] + ' ' + now.getFullYear();
+  // p-month se ažurira u renderPanel()
   // Warranty types
   const ws = document.getElementById('inp-wtype');
   WARRANTY_TYPES.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; ws.appendChild(o); });
@@ -407,7 +405,7 @@ function startApp() {
   if (!cfg.names) cfg.names = DEFAULT_NAMES;
   target = cfg.target || 0;
   if (target) document.getElementById('tgt-inp').value = target;
-  buildNames(); loadData();
+  buildNames(); buildMonthOptions(); loadData();
 }
 
 function buildNames() {
@@ -566,16 +564,47 @@ async function del(id) {
 }
 
 // ── Filter & group ───────────────────────────────────────
-function filt() {
-  const p = document.getElementById('fp').value, now = new Date();
-  return entries.filter(e => {
-    if (p === 'all') return true;
-    const d = new Date(e.date + 'T12:00:00');
-    if (p === 'today') return e.date === todayStr;
-    if (p === 'week') { const dow = now.getDay()===0?6:now.getDay()-1; const m = new Date(now); m.setDate(now.getDate()-dow); m.setHours(0,0,0,0); return d >= m; }
-    if (p === 'month') return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
-    return true;
+function buildMonthOptions() {
+  // Skupi sve mjesece iz unosa + dodaj tekući i okolne
+  const now = new Date();
+  const monthSet = new Set();
+  // Uvijek dodaj zadnjih 6 i sljedećih 2 mjeseci
+  for (let i = -12; i <= 2; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    monthSet.add(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+  }
+  // Dodaj sve mjesece iz unosa
+  entries.forEach(e => {
+    if (e.date) monthSet.add(e.date.slice(0,7));
   });
+  const months = [...monthSet].sort().reverse(); // najnoviji prvi
+  const sel = document.getElementById('fp');
+  const cur = sel.value;
+  sel.innerHTML = months.map(m => {
+    const [y, mo] = m.split('-');
+    const label = MN[parseInt(mo)-1] + ' ' + y;
+    return `<option value="${m}"${m===cur?' selected':''}>${label}</option>`;
+  }).join('');
+  // Ako nema odabira ili nije u listi, postavi tekući
+  const curYM = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  if (!sel.value || !months.includes(sel.value)) sel.value = curYM;
+}
+
+function changeMonth(dir) {
+  const sel = document.getElementById('fp');
+  const opts = [...sel.options];
+  const idx = opts.findIndex(o => o.value === sel.value);
+  const newIdx = idx - dir; // reverse sorted, pa - za naprijed
+  if (newIdx >= 0 && newIdx < opts.length) {
+    sel.value = opts[newIdx].value;
+    render();
+  }
+}
+
+function filt() {
+  const p = document.getElementById('fp').value;
+  if (!p) return entries;
+  return entries.filter(e => e.date && e.date.slice(0,7) === p);
 }
 
 function group(list) {
@@ -599,6 +628,7 @@ function avc(n) { let h=0; for(let c of n) h=(h*31+c.charCodeAt(0))&0xffff; retu
 
 // ── Render ───────────────────────────────────────────────
 function render() {
+  buildMonthOptions();
   const fl = filt(), bp = group(fl);
   const tw = fl.reduce((s,e)=>s+(Number(e.wval)||0),0);
   const tc = fl.filter(e=>e.wtype).length;
@@ -673,6 +703,12 @@ function renderLB(fl, bp) {
 function renderPanel(bp, totalW) {
   const pct = target > 0 ? Math.min(Math.round((totalW/target)*100),100) : 0;
   drawArc(pct);
+  // Ažuriraj prikaz odabranog mjeseca u panelu
+  const selM = document.getElementById('fp') ? document.getElementById('fp').value : '';
+  if (selM && MN) {
+    const [y, mo] = selM.split('-');
+    document.getElementById('p-month').textContent = MN[parseInt(mo)-1] + ' ' + y;
+  }
   document.getElementById('arc-lbl').textContent = target > 0
     ? `${eur(totalW)} od ${eur(target)} cilja`
     : `Ukupno jamstava: ${eur(totalW)}`;
