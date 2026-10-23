@@ -211,20 +211,15 @@
   <div class="setup-logo">Ljestvica prodaje</div>
   <p class="setup-sub">Jednokratno postavljanje — samo jednom po pregledniku</p>
   <div class="step-card">
-    <div class="step-title"><span class="step-num">1</span> Besplatni JSONBin račun</div>
-    <div class="step-body">Idi na <a href="https://jsonbin.io" target="_blank">jsonbin.io</a> i registriraj se. Ne treba kreditna kartica.</div>
+    <div class="step-title"><span class="step-num">1</span> Firebase URL baze</div>
+    <div class="step-body">Upiši URL Firebase Realtime Database koji ti je dao administrator. Izgleda ovako:<br><code>https://naziv-default-rtdb.europe-west1.firebasedatabase.app</code></div>
   </div>
   <div class="step-card">
-    <div class="step-title"><span class="step-num">2</span> API ključ</div>
-    <div class="step-body">Ikona profila → <strong>API Keys</strong> → kopiraj <code>Master Key</code> (počinje s <code>$2a$10$</code>).</div>
-  </div>
-  <div class="step-card">
-    <div class="step-title"><span class="step-num">3</span> Bin ID</div>
-    <div class="step-body">Klikni <strong>+ Create Bin</strong>, upiši <code>[]</code>, spremi. Kopiraj <strong>Bin ID</strong> iz URL-a.</div>
+    <div class="step-title"><span class="step-num">2</span> Isti URL za sve</div>
+    <div class="step-body">Svaki kolega pri prvom otvaranju upiše isti URL. Podaci se odmah dijele s cijelim timom.</div>
   </div>
   <div class="setup-f">
-    <div class="field"><label>Master API Key</label><input type="password" id="sk" placeholder="$2a$10$..." /></div>
-    <div class="field"><label>Bin ID</label><input type="text" id="sb" placeholder="6830abc123..." /></div>
+    <div class="field"><label>Firebase URL</label><input type="text" id="sb" placeholder="https://naziv-default-rtdb.europe-west1.firebasedatabase.app" /></div>
     <div class="field"><label>Naziv poslovnice</label><input type="text" id="sn" placeholder="npr. Zagreb Centar" /></div>
     <button class="btn-p" onclick="setupApp()">Spremi i pokreni →</button>
     <p class="setup-note">Postavke se čuvaju samo u tvojem pregledniku.</p>
@@ -391,16 +386,23 @@ function init() {
 }
 
 function setupApp() {
-  const k = document.getElementById('sk').value.trim();
-  const b = document.getElementById('sb').value.trim();
+  let b = document.getElementById('sb').value.trim().replace(/\/+$/, '');
   const n = document.getElementById('sn').value.trim();
-  if (!k || !b) { alert('Unesi API Key i Bin ID.'); return; }
-  cfg = { key: k, bin: b, name: n, names: DEFAULT_NAMES, target: 0 };
+  if (!b) { alert('Unesi Firebase URL.'); return; }
+  cfg = { blob: b, name: n, names: DEFAULT_NAMES, target: 0 };
   localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
   startApp();
 }
 
 function startApp() {
+  // Migracija: ako nema Firebase URL-a (stari JSONBin/JSONBlob format), traži novi URL
+  const isFirebase = cfg.blob && cfg.blob.includes('firebasedatabase.app');
+  if (!isFirebase) {
+    document.getElementById('setup-screen').style.display = 'block';
+    document.getElementById('sn').value = cfg.name || '';
+    err('Baza podataka je promijenjena — upiši Firebase URL za nastavak.');
+    return;
+  }
   document.getElementById('setup-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'block';
   if (cfg.name) document.getElementById('branch-lbl').textContent = '— ' + cfg.name;
@@ -442,8 +444,8 @@ function resetCfg() {
 }
 
 // ── API ──────────────────────────────────────────────────
-const API = () => `https://api.jsonbin.io/v3/b/${cfg.bin}`;
-const H = () => ({ 'Content-Type': 'application/json', 'X-Master-Key': cfg.key });
+const API = () => `${cfg.blob}/sales.json`;
+const H = () => ({ 'Content-Type': 'application/json' });
 
 async function loadData() {
   try {
@@ -473,7 +475,7 @@ async function loadData() {
     render(); sync();
   } catch(e) {
     err('Greška pri učitavanju: ' + e.message);
-    document.getElementById('lbc').innerHTML = '<div class="empty">Nije moguće dohvatiti podatke.<br>Provjeri API Key i Bin ID.</div>';
+    document.getElementById('lbc').innerHTML = '<div class="empty">Nije moguće dohvatiti podatke.<br>Provjeri Blob ID.</div>';
   }
 }
 
