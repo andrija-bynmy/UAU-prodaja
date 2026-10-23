@@ -275,7 +275,7 @@
       <div class="ctrl-row">
         <label>Mjesec:</label>
         <button class="btn-sm" id="btn-prev" onclick="changeMonth(-1)" style="padding:5px 10px;font-size:16px;">‹</button>
-        <select id="fp" onchange="render()" style="font-weight:600;min-width:160px;text-align:center;"></select>
+        <select id="fp" onchange="selectedMonth=this.value;render()" style="font-weight:600;min-width:160px;text-align:center;"></select>
         <button class="btn-sm" id="btn-next" onclick="changeMonth(1)" style="padding:5px 10px;font-size:16px;">›</button>
         <span class="last-up" id="lu"></span>
       </div>
@@ -373,6 +373,8 @@ const MN = ['Siječanj','Veljača','Ožujak','Travanj','Svibanj','Lipanj',
 
 const CFG_KEY = 'sales_app_v2';
 let cfg = null, entries = [], curTab = 'warranties', target = 0;
+const nowInit = new Date();
+let selectedMonth = nowInit.getFullYear() + '-' + String(nowInit.getMonth()+1).padStart(2,'0');
 const todayStr = new Date().toISOString().split('T')[0];
 
 function init() {
@@ -441,7 +443,7 @@ function resetCfg() {
 
 // ── API ──────────────────────────────────────────────────
 const API = () => `https://api.jsonbin.io/v3/b/${cfg.bin}`;
-const H = () => ({ 'Content-Type': 'application/json', 'X-Master-Key': cfg.key, 'X-Bin-Versioning': 'false' });
+const H = () => ({ 'Content-Type': 'application/json', 'X-Master-Key': cfg.key });
 
 async function loadData() {
   try {
@@ -565,46 +567,40 @@ async function del(id) {
 
 // ── Filter & group ───────────────────────────────────────
 function buildMonthOptions() {
-  // Skupi sve mjesece iz unosa + dodaj tekući i okolne
   const now = new Date();
+  const curYM = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
   const monthSet = new Set();
-  // Uvijek dodaj zadnjih 6 i sljedećih 2 mjeseci
+  // Uvijek dodaj zadnjih 12 i sljedeća 2 mjeseca
   for (let i = -12; i <= 2; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     monthSet.add(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
   }
   // Dodaj sve mjesece iz unosa
-  entries.forEach(e => {
-    if (e.date) monthSet.add(e.date.slice(0,7));
-  });
-  const months = [...monthSet].sort().reverse(); // najnoviji prvi
+  entries.forEach(e => { if (e.date) monthSet.add(e.date.slice(0,7)); });
+  const months = [...monthSet].sort().reverse();
+  // Ako selectedMonth nije u listi (ne bi trebao biti problem), resetiraj na tekući
+  if (!months.includes(selectedMonth)) selectedMonth = curYM;
   const sel = document.getElementById('fp');
-  const cur = sel.value;
   sel.innerHTML = months.map(m => {
     const [y, mo] = m.split('-');
-    const label = MN[parseInt(mo)-1] + ' ' + y;
-    return `<option value="${m}"${m===cur?' selected':''}>${label}</option>`;
+    return `<option value="${m}"${m===selectedMonth?' selected':''}>${MN[parseInt(mo)-1]} ${y}</option>`;
   }).join('');
-  // Ako nema odabira ili nije u listi, postavi tekući
-  const curYM = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
-  if (!sel.value || !months.includes(sel.value)) sel.value = curYM;
+  sel.value = selectedMonth;
 }
 
 function changeMonth(dir) {
   const sel = document.getElementById('fp');
   const opts = [...sel.options];
-  const idx = opts.findIndex(o => o.value === sel.value);
+  const idx = opts.findIndex(o => o.value === selectedMonth);
   const newIdx = idx - dir; // reverse sorted, pa - za naprijed
   if (newIdx >= 0 && newIdx < opts.length) {
-    sel.value = opts[newIdx].value;
+    selectedMonth = opts[newIdx].value;
     render();
   }
 }
 
 function filt() {
-  const p = document.getElementById('fp').value;
-  if (!p) return entries;
-  return entries.filter(e => e.date && e.date.slice(0,7) === p);
+  return entries.filter(e => e.date && e.date.slice(0,7) === selectedMonth);
 }
 
 function group(list) {
