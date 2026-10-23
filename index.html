@@ -452,7 +452,8 @@ async function loadData() {
     const r = await fetch(API(), { headers: H() });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
-    const rec = d.record;
+    // Firebase vraća objekt direktno (bez .record wrappera koji je koristio JSONBin)
+    const rec = (d && d.record !== undefined) ? d.record : d;
     // Nova struktura: { entries, names, target }
     // Stara struktura: plain array — backwards compatible
     if (rec && rec.entries !== undefined) {
